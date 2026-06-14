@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for newly added manaba assignments every 30 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00 Asia/Tokyo
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

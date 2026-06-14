@@ -1,0 +1,2 @@
+"""manaba assignment notifier."""
+

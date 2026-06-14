@@ -1,0 +1,10 @@
+[Unit]
+Description=Run manaba notifier daily
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 Asia/Tokyo
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

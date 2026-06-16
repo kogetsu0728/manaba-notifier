@@ -23,7 +23,7 @@
 git clone https://github.com/kogetsu0728/manaba-notifier.git
 cd manaba-notifier
 uv sync --frozen
-uv run playwright install chromium
+uv run playwright install --with-deps chromium
 cp .env.example .env
 chmod 600 .env
 ```

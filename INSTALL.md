@@ -34,16 +34,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/kogetsu0728/manaba-notifier.git
 cd manaba-notifier
 uv sync --frozen
-uv run playwright install chromium
-```
-
-ChromiumのOS依存ライブラリが不足する場合は、次を実行します。
-
-```bash
 uv run playwright install --with-deps chromium
 ```
 
-このコマンドはOSパッケージの導入に `sudo` を必要とする場合があります。
+このコマンドはChromiumのOS依存ライブラリも導入するため、環境によっては `sudo` を必要とする場合があります。
 
 ## 3. 外部サービスの準備
 
@@ -191,7 +185,7 @@ journalctl -u manaba-new-assignments.service -n 100 --no-pager
 cd /path/to/manaba-notifier
 git pull --ff-only
 uv sync --frozen
-uv run playwright install chromium
+uv run playwright install --with-deps chromium
 uv run pytest
 ```
 

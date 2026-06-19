@@ -190,7 +190,7 @@ def _sync_todoist(
     if operations:
         save_state(STATE_PATH, state)
 
-    failed = False
+    failed_count = 0
     for start in range(0, len(operations), MAX_COMMANDS):
         batch = operations[start : start + MAX_COMMANDS]
         result = sync_commands(
@@ -199,14 +199,16 @@ def _sync_todoist(
         )
         for operation in batch:
             if operation.command.uuid not in result.succeeded:
-                failed = True
+                failed_count += 1
                 continue
             if not _apply_success(operation, result.task_ids, state):
-                failed = True
+                failed_count += 1
         save_state(STATE_PATH, state)
 
-    if failed:
-        raise TodoistError("Todoistの一部の課題を同期できなかった")
+    if failed_count:
+        raise TodoistError(
+            f"Todoistの一部の課題を同期できなかった (失敗 {failed_count}件)"
+        )
 
 
 def _notify_discord(

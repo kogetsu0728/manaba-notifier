@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC
@@ -7,11 +8,13 @@ from typing import Any
 
 import requests
 
+from manaba_notifier.error_details import request_detail
 from manaba_notifier.errors import NotifierError
 from manaba_notifier.models import Assignment
 
 TODOIST_SYNC_URL = "https://api.todoist.com/api/v1/sync"
 MAX_COMMANDS = 100
+RETRY_DELAYS = (1.0, 3.0)
 
 
 class TodoistError(RuntimeError, NotifierError):
@@ -76,17 +79,29 @@ def sync_commands(token: str, commands: Sequence[TodoistCommand]) -> TodoistSync
     if len(commands) > MAX_COMMANDS:
         raise ValueError(f"Todoist Sync APIは1回{MAX_COMMANDS}コマンドまで")
 
+    attempts = len(RETRY_DELAYS) + 1
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                TODOIST_SYNC_URL,
+                headers={"Authorization": f"Bearer {token}"},
+                data={"commands": _commands_json(commands)},
+                timeout=30,
+            )
+            response.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            if attempt < len(RETRY_DELAYS) and _should_retry(exc):
+                time.sleep(RETRY_DELAYS[attempt])
+                continue
+            raise TodoistError(_request_error_message(exc, attempt + 1)) from exc
+    else:
+        raise TodoistError("Todoist APIへの接続に失敗した")
+
     try:
-        response = requests.post(
-            TODOIST_SYNC_URL,
-            headers={"Authorization": f"Bearer {token}"},
-            data={"commands": _commands_json(commands)},
-            timeout=30,
-        )
-        response.raise_for_status()
         data: Any = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        raise TodoistError("Todoist APIへの接続に失敗した") from exc
+    except ValueError as exc:
+        raise TodoistError("Todoist APIから不正な応答を受信した") from exc
 
     if not isinstance(data, dict) or not isinstance(data.get("sync_status"), dict):
         raise TodoistError("Todoist APIから不正な応答を受信した")
@@ -113,3 +128,15 @@ def _commands_json(commands: Sequence[TodoistCommand]) -> str:
     import json
 
     return json.dumps([command.payload() for command in commands], ensure_ascii=False)
+
+
+def _should_retry(exc: requests.RequestException) -> bool:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return True
+    return response.status_code == 429 or 500 <= response.status_code < 600
+
+
+def _request_error_message(exc: requests.RequestException, attempts: int) -> str:
+    detail = request_detail(exc)
+    return f"Todoist APIへの接続に失敗した ({detail}; {attempts}回試行)"

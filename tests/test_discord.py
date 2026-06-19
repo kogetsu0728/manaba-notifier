@@ -224,3 +224,27 @@ def test_post_webhook_hides_url_on_failure(monkeypatch: pytest.MonkeyPatch) -> N
         post_webhook(secret_url, {"content": "message"})
 
     assert secret_url not in str(captured.value)
+    assert "Timeout" in str(captured.value)
+
+
+def test_post_webhook_reports_http_status_without_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Response:
+        status_code = 429
+        text = "rate limit detail"
+
+        def raise_for_status(self) -> None:
+            raise requests.HTTPError("rate limit detail", response=self)
+
+    monkeypatch.setattr(
+        "manaba_notifier.discord.requests.post",
+        lambda *args, **kwargs: Response(),
+    )
+
+    with pytest.raises(DiscordError) as captured:
+        post_webhook("https://discord.example/webhook-secret", {"content": "message"})
+
+    assert "HTTP 429" in str(captured.value)
+    assert "rate limit detail" not in str(captured.value)
+    assert "webhook-secret" not in str(captured.value)

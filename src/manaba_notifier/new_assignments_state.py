@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from manaba_notifier.error_details import exception_type, with_detail
 from manaba_notifier.errors import NotifierError
 from manaba_notifier.models import Assignment
 
@@ -141,7 +142,12 @@ def load_state(path: Path) -> NewAssignmentsState:
     try:
         data: object = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise StateError("新着課題の状態ファイルを読み込めない") from exc
+        raise StateError(
+            with_detail(
+                "新着課題の状態ファイルを読み込めない",
+                exception_type(exc),
+            )
+        ) from exc
 
     if not isinstance(data, dict):
         raise StateError("新着課題の状態ファイルの形式が不正")
@@ -195,7 +201,12 @@ def save_state(path: Path, state: NewAssignmentsState) -> None:
         os.replace(temporary_path, path)
         temporary_path = None
     except OSError as exc:
-        raise StateError("新着課題の状態ファイルを保存できない") from exc
+        raise StateError(
+            with_detail(
+                "新着課題の状態ファイルを保存できない",
+                exception_type(exc),
+            )
+        ) from exc
     finally:
         if temporary_path is not None:
             try:

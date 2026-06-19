@@ -6,6 +6,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
 from manaba_notifier.config import ManabaConfig
+from manaba_notifier.error_details import exception_type, with_detail
 from manaba_notifier.errors import NotifierError
 
 
@@ -24,14 +25,21 @@ def login(page: Page, config: ManabaConfig) -> None:
             timeout=LOGIN_TIMEOUT_MS,
         )
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
-        raise LoginError("ログインページへの接続に失敗した") from exc
+        raise LoginError(
+            with_detail("ログインページへの接続に失敗した", exception_type(exc))
+        ) from exc
 
     try:
         user_input = page.locator("#username")
         password_input = page.locator("#password")
         password_input.wait_for(state="visible", timeout=LOGIN_TIMEOUT_MS)
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
-        raise LoginError("ログインページの構造が変更された可能性がある") from exc
+        raise LoginError(
+            with_detail(
+                "ログインページの構造が変更された可能性がある",
+                exception_type(exc),
+            )
+        ) from exc
 
     try:
         user_input.fill(config.manaba_id)
@@ -45,7 +53,9 @@ def login(page: Page, config: ManabaConfig) -> None:
             timeout=LOGIN_TIMEOUT_MS,
         )
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
-        raise LoginError("ログインに失敗した") from exc
+        raise LoginError(
+            with_detail("ログインに失敗した", exception_type(exc))
+        ) from exc
 
     try:
         page.goto(
@@ -54,7 +64,9 @@ def login(page: Page, config: ManabaConfig) -> None:
             timeout=LOGIN_TIMEOUT_MS,
         )
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
-        raise LoginError("課題一覧ページへの接続に失敗した") from exc
+        raise LoginError(
+            with_detail("課題一覧ページへの接続に失敗した", exception_type(exc))
+        ) from exc
 
     try:
         page.get_by_text("未提出の課題一覧", exact=False).wait_for(
@@ -62,4 +74,9 @@ def login(page: Page, config: ManabaConfig) -> None:
             timeout=LOGIN_TIMEOUT_MS,
         )
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
-        raise LoginError("課題一覧ページの構造が変更された可能性がある") from exc
+        raise LoginError(
+            with_detail(
+                "課題一覧ページの構造が変更された可能性がある",
+                exception_type(exc),
+            )
+        ) from exc

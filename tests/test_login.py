@@ -92,3 +92,4 @@ def test_login_reports_failure_stage(failing_call: str, message: str) -> None:
         login(page, _config())
 
     assert "secret" not in str(exc_info.value)
+    assert "Error" in str(exc_info.value)

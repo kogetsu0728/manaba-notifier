@@ -70,6 +70,8 @@ def test_sync_commands_parses_success_and_mapping(monkeypatch) -> None:
 
 
 def test_sync_commands_hides_token_on_failure(monkeypatch) -> None:
+    monkeypatch.setattr("manaba_notifier.todoist.time.sleep", lambda delay: None)
+
     def fail(*args, **kwargs):
         raise requests.RequestException("secret-token")
 
@@ -79,4 +81,60 @@ def test_sync_commands_hides_token_on_failure(monkeypatch) -> None:
             "secret-token",
             [TodoistCommand("command-id", "item_close", {"id": "task-id"})],
         )
+    assert "secret-token" not in str(exc_info.value)
+    assert "RequestException" in str(exc_info.value)
+    assert "3回試行" in str(exc_info.value)
+
+
+def test_sync_commands_retries_transient_failure(monkeypatch) -> None:
+    response = type(
+        "Response",
+        (),
+        {
+            "raise_for_status": lambda self: None,
+            "json": lambda self: {"sync_status": {"command-id": "ok"}},
+        },
+    )()
+    calls = 0
+
+    def post(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise requests.Timeout("temporary")
+        return response
+
+    monkeypatch.setattr("manaba_notifier.todoist.time.sleep", lambda delay: None)
+    monkeypatch.setattr("manaba_notifier.todoist.requests.post", post)
+
+    result = sync_commands(
+        "secret-token",
+        [TodoistCommand("command-id", "item_close", {"id": "task-id"})],
+    )
+
+    assert result.succeeded == {"command-id"}
+    assert calls == 2
+
+
+def test_sync_commands_reports_http_status_without_body(monkeypatch) -> None:
+    class Response:
+        status_code = 500
+        text = "server detail"
+
+        def raise_for_status(self):
+            raise requests.HTTPError("server detail", response=self)
+
+    monkeypatch.setattr("manaba_notifier.todoist.time.sleep", lambda delay: None)
+    monkeypatch.setattr(
+        "manaba_notifier.todoist.requests.post", lambda *args, **kwargs: Response()
+    )
+
+    with pytest.raises(TodoistError) as exc_info:
+        sync_commands(
+            "secret-token",
+            [TodoistCommand("command-id", "item_close", {"id": "task-id"})],
+        )
+
+    assert "HTTP 500" in str(exc_info.value)
+    assert "server detail" not in str(exc_info.value)
     assert "secret-token" not in str(exc_info.value)

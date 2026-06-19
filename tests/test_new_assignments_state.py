@@ -97,6 +97,25 @@ def test_load_state_rejects_corrupt_state(tmp_path: Path, content: str) -> None:
         load_state(path)
 
 
+def test_load_state_reports_read_failure_type(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "state.json"
+    path.write_text("{}", encoding="utf-8")
+
+    def fail_read(*args: object, **kwargs: object) -> str:
+        raise OSError("secret read detail")
+
+    monkeypatch.setattr(Path, "read_text", fail_read)
+
+    with pytest.raises(StateError) as exc_info:
+        load_state(path)
+
+    assert "OSError" in str(exc_info.value)
+    assert "secret read detail" not in str(exc_info.value)
+
+
 def test_save_state_keeps_previous_file_when_replace_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -108,7 +127,9 @@ def test_save_state_keeps_previous_file_when_replace_fails(
         raise OSError("replace failed")
 
     monkeypatch.setattr("manaba_notifier.new_assignments_state.os.replace", fail_replace)
-    with pytest.raises(StateError, match="保存できない"):
+    with pytest.raises(StateError, match="保存できない") as exc_info:
         save_state(path, NewAssignmentsState())
+    assert "OSError" in str(exc_info.value)
+    assert "replace failed" not in str(exc_info.value)
     assert path.read_text(encoding="utf-8") == "previous"
     assert list(tmp_path.glob(".state.json.*")) == []

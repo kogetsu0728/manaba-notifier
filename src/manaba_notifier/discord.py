@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import requests
 
+from manaba_notifier.error_details import request_detail, with_detail
 from manaba_notifier.errors import NotifierError
 from manaba_notifier.models import Assignment
 
@@ -172,4 +173,6 @@ def post_webhook(webhook_url: str, payload: Mapping[str, object]) -> None:
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise DiscordError("Discord Webhookへの投稿に失敗した") from exc
+        raise DiscordError(
+            with_detail("Discord Webhookへの投稿に失敗した", request_detail(exc))
+        ) from exc

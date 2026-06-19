@@ -10,6 +10,7 @@ from manaba_notifier.models import Assignment
 from manaba_notifier.new_assignments_main import (
     _apply_success,
     _execute,
+    _sync_todoist,
     _todoist_operations,
 )
 from manaba_notifier.new_assignments_state import (
@@ -18,6 +19,7 @@ from manaba_notifier.new_assignments_state import (
     assignment_fingerprint,
     assignment_id,
 )
+from manaba_notifier.todoist import TodoistError
 
 
 @pytest.fixture(autouse=True)
@@ -208,3 +210,21 @@ def test_execute_records_discord_and_todoist_failures(monkeypatch) -> None:
         ("new-assignments", "discord"),
         ("new-assignments", "todoist"),
     ]
+
+
+def test_sync_todoist_reports_partial_failure_count(monkeypatch) -> None:
+    assignment = _assignment("課題", "https://manaba.example/1")
+    state = NewAssignmentsState()
+    monkeypatch.setattr(
+        "manaba_notifier.new_assignments_main.save_state", lambda path, state: None
+    )
+
+    def sync(token, commands):
+        from manaba_notifier.todoist import TodoistSyncResult
+
+        return TodoistSyncResult(set(), {commands[0].uuid}, {})
+
+    monkeypatch.setattr("manaba_notifier.new_assignments_main.sync_commands", sync)
+
+    with pytest.raises(TodoistError, match="失敗 1件"):
+        _sync_todoist([assignment], state, _config())
